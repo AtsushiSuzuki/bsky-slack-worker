@@ -1,9 +1,15 @@
 name = "bsky-slack-worker"
 main = "src/index.ts"
 compatibility_date = "2023-05-15"
+kv_namespaces = [
+    { binding = "kv", id = "847c8acad7414eba9825bf062888b652" }
+]
+
+[vars]
+BSKY_IDENTIFIER = "asuzuki.bsky.social"
 
 # Cron Triggers
 # Docs: https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/
 # Configuration: https://developers.cloudflare.com/workers/wrangler/configuration/#triggers
 [triggers]
-crons = ["* * * * *"] # * * * * * = run every minute
+crons = ["*/15 * * * *"] # */15 * * * * = run every 15 minute

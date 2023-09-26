@@ -1,3 +1,5 @@
+import { BskyAgent, AtpSessionData } from "@atproto/api";
+
 /**
  * Welcome to Cloudflare Workers!
  *
@@ -13,6 +15,10 @@
  */
 
 export interface Env {
+	BSKY_IDENTIFIER: string;
+	BSKY_PASSWORD: string;
+	SLACK_WEBHOOK_URL: string;
+	kv: KVNamespace;
 	// Example binding to KV. Learn more at https://developers.cloudflare.com/workers/runtime-apis/kv/
 	// MY_KV_NAMESPACE: KVNamespace;
 	//
@@ -32,19 +38,90 @@ export interface Env {
 	// DB: D1Database
 }
 
+interface State {
+	lastTimestamp?: number;
+}
+
 export default {
 	// The scheduled handler is invoked at the interval set in our wrangler.toml's
 	// [[triggers]] configuration.
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
-		// A Cron Trigger can make requests to other endpoints on the Internet,
-		// publish to a Queue, query a D1 Database, and much more.
-		//
-		// We'll keep it simple and make an API call to a Cloudflare API:
-		let resp = await fetch('https://api.cloudflare.com/client/v4/ips');
-		let wasSuccessful = resp.ok ? 'success' : 'fail';
+		const identifier = env.BSKY_IDENTIFIER;
+		const password = env.BSKY_PASSWORD;
+		const bsky = new BskyAgent({
+			service: "https://bsky.social",
+			persistSession(evt, session) {
+				if ((evt == "create" || evt == "update") && session) {
+					env.kv.put(`bsky:session:${identifier}`, JSON.stringify(session)).then(() => {
+						console.log(`session persisted`);
+					}, err => {
+						console.log(`session persist failed: ${err}`);
+					});
+				}
+			},
+		});
 
-		// You could store this result in KV, write to a D1 Database, or publish to a Queue.
-		// In this template, we'll just log the result:
-		console.log(`trigger fired at ${event.cron}: ${wasSuccessful}`);
+		const savedSession = await env.kv.get<AtpSessionData>(`bsky:session:${identifier}`, "json");
+		if (savedSession) {
+			await bsky.resumeSession(savedSession).then(() => {
+				console.log(`session resumed`);
+			}, err => {
+				console.log(`session resume failed: ${err}`);
+			});
+		}
+		if (!bsky.hasSession) {
+			await bsky.login({identifier, password});
+		}
+
+		const state = await env.kv.get<State>(`state:${identifier}`, "json") || {};
+		let lastTimestamp = state?.lastTimestamp || 0;
+
+		const res = await bsky.getAuthorFeed({actor: identifier});
+		try {
+			for (const {post} of res.data.feed.reverse()) {
+				const postId = post.uri.split("/").reverse()[0];
+				const timestamp = Date.parse((post.record as any)?.createdAt || post.indexedAt).valueOf();
+				if (timestamp <= lastTimestamp) {
+					continue;
+				}
+
+				await fetch(env.SLACK_WEBHOOK_URL, {
+					method: "post",
+					headers: {"Content-Type": "application/json"},
+					body: JSON.stringify({
+						blocks: [
+							{
+								type: "section",
+								text: {
+									type: "plain_text",
+									text: (post.record as any)?.text,
+									emoji: true,
+								},
+								accessory: {
+									type: "button",
+									text: {
+										type: "plain_text",
+										text: "Open in bsky.app",
+										emoji: true,
+									},
+									value: post.uri,
+									url: `https://bsky.app/profile/${identifier}/post/${postId}`,
+									action_id: "button-action",
+								},
+							},
+						],
+					}),
+				}).then(res => {
+					if (!res.ok) {
+						throw new Error(`post to slack failed: ${res.status}: ${res.statusText}`);
+					}
+				});
+				lastTimestamp = timestamp;
+			}
+		} finally {
+			if (lastTimestamp > (state?.lastTimestamp || 0)) {
+				await env.kv.put(`state:${identifier}`, JSON.stringify({lastTimestamp}));
+			}
+		}
 	},
 };
