@@ -1,14 +1,14 @@
 {
   "name": "bsky-slack-worker",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
+  "license": "ISC",
   "scripts": {
     "deploy": "wrangler deploy",
     "start": "wrangler dev"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230419.0",
-    "typescript": "^5.0.4",
+    "typescript": "^5.2",
     "wrangler": "^3.0.0"
   },
   "dependencies": {

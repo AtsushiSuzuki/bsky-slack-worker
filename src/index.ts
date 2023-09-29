@@ -55,7 +55,7 @@ export default {
 					env.kv.put(`bsky:session:${identifier}`, JSON.stringify(session)).then(() => {
 						console.log(`session persisted`);
 					}, err => {
-						console.log(`session persist failed: ${err}`);
+						console.log(`session persist failed: `, err);
 					});
 				}
 			},
@@ -66,21 +66,23 @@ export default {
 			await bsky.resumeSession(savedSession).then(() => {
 				console.log(`session resumed`);
 			}, err => {
-				console.log(`session resume failed: ${err}`);
+				console.log(`session resume failed: `, err);
 			});
 		}
 		if (!bsky.hasSession) {
 			await bsky.login({identifier, password});
+			console.log(`session logged in`);
 		}
 
-		const state = await env.kv.get<State>(`state:${identifier}`, "json") || {};
-		let lastTimestamp = state?.lastTimestamp || 0;
+		const state = await env.kv.get<State>(`state:${identifier}`, "json") ?? {};
+		let lastTimestamp = state.lastTimestamp ?? 0;
 
 		const res = await bsky.getAuthorFeed({actor: identifier});
 		try {
-			for (const {post} of res.data.feed.reverse()) {
-				const postId = post.uri.split("/").reverse()[0];
-				const timestamp = Date.parse((post.record as any)?.createdAt || post.indexedAt).valueOf();
+			for (const {post} of res.data.feed.toReversed()) {
+				const record = post.record as any;
+				const postId = post.uri.split("/").at(-1);
+				const timestamp = Date.parse(record.createdAt ?? post.indexedAt).valueOf();
 				if (timestamp <= lastTimestamp) {
 					continue;
 				}
@@ -94,7 +96,7 @@ export default {
 								type: "section",
 								text: {
 									type: "plain_text",
-									text: (post.record as any)?.text,
+									text: record.text,
 									emoji: true,
 								},
 								accessory: {
@@ -113,13 +115,14 @@ export default {
 					}),
 				}).then(res => {
 					if (!res.ok) {
-						throw new Error(`post to slack failed: ${res.status}: ${res.statusText}`);
+						throw new Error(`submit to slack failed: ${res.status}: ${res.statusText}`);
 					}
+					console.log(`post submitted: ${post.uri}`);
 				});
 				lastTimestamp = timestamp;
 			}
 		} finally {
-			if (lastTimestamp > (state?.lastTimestamp || 0)) {
+			if (lastTimestamp > (state.lastTimestamp ?? 0)) {
 				await env.kv.put(`state:${identifier}`, JSON.stringify({lastTimestamp}));
 			}
 		}
