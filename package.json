@@ -8,10 +8,10 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20230419.0",
-    "typescript": "^5.2",
-    "wrangler": "^3.0.0"
+    "typescript": "^6.0.3",
+    "wrangler": "^4.103.0"
   },
   "dependencies": {
-    "@atproto/api": "^0.6.18"
+    "@atproto/api": "^0.20.16"
   }
 }

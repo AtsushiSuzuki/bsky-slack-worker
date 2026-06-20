@@ -1,6 +1,6 @@
 name = "bsky-slack-worker"
 main = "src/index.ts"
-compatibility_date = "2023-05-15"
+compatibility_date = "2026-06-20"
 kv_namespaces = [
     { binding = "kv", id = "847c8acad7414eba9825bf062888b652" }
 ]
