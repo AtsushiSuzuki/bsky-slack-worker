@@ -1,4 +1,4 @@
-import { BskyAgent, AtpSessionData } from "@atproto/api";
+import { BskyAgent, AtpSessionData, AppBskyEmbedImages } from "@atproto/api";
 
 /**
  * Welcome to Cloudflare Workers!
@@ -114,9 +114,8 @@ export default {
 						}
 					});
 				}
-				if (post.embed && post.embed.$type === "app.bsky.images#view") {
-					const images = post.embed.images as any[];
-					for (const image of images) {
+				if (AppBskyEmbedImages.isView(post.embed)) {
+					for (const image of post.embed.images) {
 						blocks.push({
 							type: "image",
 							image_url: image.thumb,
