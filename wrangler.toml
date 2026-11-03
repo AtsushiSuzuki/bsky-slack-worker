@@ -5,11 +5,32 @@ kv_namespaces = [
     { binding = "kv", id = "847c8acad7414eba9825bf062888b652" }
 ]
 
+
 [vars]
 BSKY_IDENTIFIER = "asuzuki.bsky.social"
 
 # Cron Triggers
 # Docs: https://developers.cloudflare.com/workers/platform/triggers/cron-triggers/
 # Configuration: https://developers.cloudflare.com/workers/wrangler/configuration/#triggers
+
 [triggers]
 crons = ["*/15 * * * *"] # */15 * * * * = run every 15 minute
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+redact_query_string = false
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 1
+persist = true
+
+[observability.issue_detection]
+enabled = true
