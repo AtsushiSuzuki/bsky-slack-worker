@@ -1,4 +1,4 @@
-import { BskyAgent, AtpSessionData, AppBskyEmbedImages } from "@atproto/api";
+import { Agent, CredentialSession, AtpSessionData, AppBskyEmbedImages } from "@atproto/api";
 
 /**
  * Welcome to Cloudflare Workers!
@@ -48,29 +48,31 @@ export default {
 	async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
 		const identifier = env.BSKY_IDENTIFIER;
 		const password = env.BSKY_PASSWORD;
-		const bsky = new BskyAgent({
-			service: "https://bsky.social",
-			persistSession(evt, session) {
-				if ((evt == "create" || evt == "update") && session) {
-					env.kv.put(`bsky:session:${identifier}`, JSON.stringify(session)).then(() => {
+		const session = new CredentialSession(
+			new URL("https://bsky.social"),
+			undefined,
+			(evt, sessionData) => {
+				if ((evt == "create" || evt == "update") && sessionData) {
+					env.kv.put(`bsky:session:${identifier}`, JSON.stringify(sessionData)).then(() => {
 						console.log(`session persisted`);
 					}, err => {
 						console.log(`session persist failed: `, err);
 					});
 				}
 			},
-		});
+		);
+		const bsky = new Agent(session);
 
 		const savedSession = await env.kv.get<AtpSessionData>(`bsky:session:${identifier}`, "json");
 		if (savedSession) {
-			await bsky.resumeSession(savedSession).then(() => {
+			await session.resumeSession(savedSession).then(() => {
 				console.log(`session resumed`);
 			}, err => {
 				console.log(`session resume failed: `, err);
 			});
 		}
-		if (!bsky.hasSession) {
-			await bsky.login({identifier, password});
+		if (!session.hasSession) {
+			await session.login({identifier, password});
 			console.log(`session logged in`);
 		}
 

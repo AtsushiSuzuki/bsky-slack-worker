@@ -32,5 +32,5 @@ enabled = true
 head_sampling_rate = 1
 persist = true
 
-[observability.issue_detection]
+[observability.issues]
 enabled = true
